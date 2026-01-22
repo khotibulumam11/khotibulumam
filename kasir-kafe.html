@@ -1,0 +1,182 @@
+<!DOCTYPE html><html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kasir Cafe HP</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f2f2f2; margin:0; padding:10px; }
+    h1 { text-align:center; margin-bottom:10px; }
+    h2 { margin:6px 0; }
+    .card { background:#fff; padding:15px; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,0.1); margin-bottom:10px; }
+    .menu-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; }
+    button { padding:12px; border:none; border-radius:10px; font-size:16px; cursor:pointer; }
+    .menu-btn { background:#222; color:#fff; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:6px; border-bottom:1px solid #ddd; font-size:14px; }
+    .total { font-size:18px; font-weight:bold; margin-top:8px; }
+    input { width:100%; padding:10px; font-size:16px; margin-top:6px; border-radius:8px; border:1px solid #ccc; }
+    .pay { background:#28a745; color:white; width:100%; margin-top:10px; }
+    .reset { background:#dc3545; color:white; width:100%; margin-top:6px; }
+    .history-btn { background:#007bff; color:white; width:100%; margin-top:6px; }
+    .receipt { font-family: monospace; font-size:14px; }
+  </style>
+</head>
+<body><h1>☕ Kasir Cafe</h1><div class="card">
+  <h2>Menu</h2>
+  <div class="menu-grid">
+    <button class="menu-btn" onclick="addItem('Kopi Hitam',15000)">Kopi Hitam</button>
+    <button class="menu-btn" onclick="addItem('Cappuccino',20000)">Cappuccino</button>
+    <button class="menu-btn" onclick="addItem('Latte',22000)">Latte</button>
+    <button class="menu-btn" onclick="addItem('Teh Manis',10000)">Teh Manis</button>
+    <button class="menu-btn" onclick="addItem('Roti Bakar',18000)">Roti Bakar</button>
+    <button class="menu-btn" onclick="addItem('Croissant',20000)">Croissant</button>
+  </div>
+</div><div class="card">
+  <h2>Pesanan</h2>
+  <table id="orderTable">
+    <tr><th>Item</th><th>Qty</th><th>Harga</th></tr>
+  </table>
+  <div class="total">Total: Rp <span id="total">0</span></div>
+</div><div class="card">
+  <h2>Pembayaran</h2>
+  <input type="number" id="payInput" placeholder="Uang dibayar" oninput="calculateChange()" />
+  <div class="total">Kembalian: Rp <span id="change">0</span></div>
+  <button class="pay" onclick="checkout()">Bayar & Cetak Struk</button>
+  <button class="reset" onclick="resetOrder()">Reset</button>
+  <button class="history-btn" onclick="showHistory()">Riwayat Transaksi</button>
+  <button class="history-btn" onclick="showReport()">Rekap Mingguan / Bulanan</button>
+  <button class="reset" onclick="resetHistory()">Reset Riwayat</button>
+</div><div class="card" id="receiptCard" style="display:none;">
+  <h2>🧾 Struk</h2>
+  <div class="receipt" id="receipt"></div>
+</div><div class="card" id="historyCard" style="display:none;">
+  <h2>📊 Riwayat</h2>
+  <div id="history"></div>
+</div><div class="card" id="dailyCard" style="display:none;">
+  <h2>📈 Total Penjualan Hari Ini</h2>
+  <div class="total">Rp <span id="dailyTotal">0</span></div>
+</div><div class="card" id="reportCard" style="display:none;">
+  <h2>📅 Rekap Penjualan</h2>
+  <label>Pilih Tanggal Awal</label>
+  <input type="date" id="startDate" />
+  <label>Pilih Tanggal Akhir</label>
+  <input type="date" id="endDate" />
+  <button class="history-btn" onclick="calculateRange()">Hitung Rekap</button>
+  <div class="total" style="margin-top:8px;">Total: Rp <span id="rangeTotal">0</span></div>
+</div>
+</div>
+</div><script>
+  let orders = {};
+  let total = 0;
+  let history = JSON.parse(localStorage.getItem('history')) || [];
+
+  function addItem(name, price) {
+    if (!orders[name]) orders[name] = { qty: 1, price };
+    else orders[name].qty++;
+    renderTable();
+  }
+
+  function renderTable() {
+    const table = document.getElementById('orderTable');
+    table.innerHTML = '<tr><th>Item</th><th>Qty</th><th>Harga</th></tr>';
+    total = 0;
+    for (let item in orders) {
+      const row = table.insertRow();
+      row.insertCell(0).innerText = item;
+      row.insertCell(1).innerText = orders[item].qty;
+      let subtotal = orders[item].qty * orders[item].price;
+      row.insertCell(2).innerText = subtotal.toLocaleString('id-ID');
+      total += subtotal;
+    }
+    document.getElementById('total').innerText = total.toLocaleString('id-ID');
+    calculateChange();
+  }
+
+  function calculateChange() {
+    let paid = parseInt(document.getElementById('payInput').value) || 0;
+    let change = paid - total;
+    document.getElementById('change').innerText = change > 0 ? change.toLocaleString('id-ID') : '0';
+  }
+
+  function checkout() {
+    let paid = parseInt(document.getElementById('payInput').value) || 0;
+    if (total === 0) return alert('Belum ada pesanan');
+    if (paid < total) return alert('Uang kurang');
+
+    const time = new Date().toLocaleString('id-ID');
+    let receiptText = `Cafe Kamu\n${time}\n---------------------\n`;
+    for (let item in orders) {
+      receiptText += `${item} x${orders[item].qty}  Rp ${(orders[item].qty * orders[item].price).toLocaleString('id-ID')}\n`;
+    }
+    receiptText += `---------------------\nTotal   : Rp ${total.toLocaleString('id-ID')}\nBayar   : Rp ${paid.toLocaleString('id-ID')}\nKembali : Rp ${(paid-total).toLocaleString('id-ID')}\n\nTerima kasih 🙏`;
+
+    document.getElementById('receipt').innerText = receiptText;
+    document.getElementById('receiptCard').style.display = 'block';
+
+    history.push({ time, total });
+    localStorage.setItem('history', JSON.stringify(history));
+    calculateDailyTotal();
+
+    resetOrder(false);
+  }
+
+  function resetOrder(clearReceipt=true) {
+    orders = {};
+    total = 0;
+    document.getElementById('orderTable').innerHTML = '<tr><th>Item</th><th>Qty</th><th>Harga</th></tr>';
+    document.getElementById('total').innerText = '0';
+    document.getElementById('change').innerText = '0';
+    document.getElementById('payInput').value = '';
+    if (clearReceipt) document.getElementById('receiptCard').style.display = 'none';
+  }
+
+  function showHistory() {
+    const card = document.getElementById('historyCard');
+    const list = document.getElementById('history');
+    list.innerHTML = '';
+    if (history.length === 0) {
+      list.innerHTML = 'Belum ada transaksi';
+    } else {
+      history.forEach((h, i) => {
+        list.innerHTML += `${i+1}. ${h.time} - Rp ${h.total.toLocaleString('id-ID')}<br>`;
+      });
+    }
+    card.style.display = 'block';
+  }
+
+  function resetHistory() {
+    if (!confirm('Yakin ingin menghapus semua riwayat transaksi?')) return;
+    history = [];
+    localStorage.removeItem('history');
+    document.getElementById('history').innerHTML = 'Riwayat berhasil dihapus';
+    document.getElementById('dailyTotal').innerText = '0';
+  }
+
+  function calculateDailyTotal() {
+    const today = new Date().toLocaleDateString('id-ID');
+    let sum = 0;
+    history.forEach(h => {
+      if (h.time.startsWith(today)) sum += h.total;
+    });
+    document.getElementById('dailyTotal').innerText = sum.toLocaleString('id-ID');
+    document.getElementById('dailyCard').style.display = 'block';
+  }
+
+  function showReport() {
+    document.getElementById('reportCard').style.display = 'block';
+  }
+
+  function calculateRange() {
+    const start = document.getElementById('startDate').value;
+    const end = document.getElementById('endDate').value;
+    if (!start || !end) return alert('Pilih rentang tanggal');
+
+    let sum = 0;
+    history.forEach(h => {
+      const date = new Date(h.time.split(',')[0].split('/').reverse().join('-'));
+      if (date >= new Date(start) && date <= new Date(end)) sum += h.total;
+    });
+    document.getElementById('rangeTotal').innerText = sum.toLocaleString('id-ID');
+  }
+</script></body>
+</html>
